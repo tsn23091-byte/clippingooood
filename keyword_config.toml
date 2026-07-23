@@ -6,10 +6,6 @@
 primary_company_keywords = [
   "JX金属",
   "ＪＸ金属",
-  "JX金属の銅建値",
-  "日本鉱業",
-  "日立鉱山",
-  "久原房之助",
 ]
 
 self_related_keywords = [
@@ -44,8 +40,10 @@ self_related_keywords = [
   "電磁波シールド",
   "負熱膨張材",
   "3Dプリンター用金属粉",
-  "JX",
-  "ＪＸ",
+  "JX金属の銅建値",
+  "日本鉱業",
+  "日立鉱山",
+  "久原房之助",
 ]
 
 competitor_keywords = [
