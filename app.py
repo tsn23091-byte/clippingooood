@@ -13,6 +13,7 @@ import tomllib
 import unicodedata
 import zipfile
 from io import BytesIO
+from numbers import Number
 from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
@@ -669,14 +670,59 @@ def to_excel_bytes(df: pd.DataFrame, sheet_name: str) -> bytes | None:
             width += 2 if unicodedata.east_asian_width(ch) in ("W", "F", "A") else 1
         return width
 
-    rows: list[list[str]] = [list(df.columns)] + df.astype(object).values.tolist()
+    # 文字列で保持しているが、Excel上では数値として扱いたい列
+    NUMERIC_TEXT_COLUMNS = {"掲載面"}
+
+    def cell_xml(ref: str, value, *, column_name: str = "", is_header: bool = False) -> str:
+        """
+        Excelセルを値の型に応じて出力する。
+
+        - int / float などの数値型:
+            → Excelの数値セルとして出力
+        - 「掲載面」の "5" / "12" のような数字文字列:
+            → Excelの数値セルとして出力
+        - 日付、タイトル、新聞社名、「日経電子版」など:
+            → 文字列セルとして出力
+        """
+        if pd.isna(value):
+            return f'<c r="{ref}"/>'
+
+        # ヘッダーは必ず文字列
+        if not is_header:
+            # bool は Number のサブクラスなので除外
+            if isinstance(value, Number) and not isinstance(value, bool):
+                return f'<c r="{ref}"><v>{value}</v></c>'
+
+            # 掲載面は Article.page が str のため、数字だけなら数値セルに変換する
+            if column_name in NUMERIC_TEXT_COLUMNS and isinstance(value, str):
+                stripped = value.strip()
+
+                if re.fullmatch(r"[+-]?\d+", stripped):
+                    return f'<c r="{ref}"><v>{int(stripped)}</v></c>'
+
+                if re.fullmatch(r"[+-]?(?:\d+\.\d*|\.\d+)", stripped):
+                    return f'<c r="{ref}"><v>{stripped}</v></c>'
+
+        text = xml_text(value)
+        return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
+
+    columns = list(df.columns)
+    rows = [columns] + df.astype(object).values.tolist()
+
     sheet_rows: list[str] = []
     for r_idx, row in enumerate(rows, start=1):
         cells: list[str] = []
         for c_idx, val in enumerate(row, start=1):
             ref = f"{col_letter(c_idx)}{r_idx}"
-            text = xml_text(val)
-            cells.append(f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>')
+            column_name = columns[c_idx - 1] if r_idx > 1 else ""
+            cells.append(
+                cell_xml(
+                    ref,
+                    val,
+                    column_name=column_name,
+                    is_header=(r_idx == 1),
+                )
+            )
         sheet_rows.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
 
     col_defs: list[str] = []
