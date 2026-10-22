@@ -1029,20 +1029,22 @@ if not articles:
     st.stop()
 
 
-def apply_filter(arts: list[Article]) -> list[Article]:
-    res = arts
+def apply_filter(arts: list[Article]) -> list[tuple[int, Article]]:
+    # 元の配列位置を保持する。同一内容の記事が複数あっても widget key を重複させない。
+    res = list(enumerate(arts))
     if st.session_state.get("fil_paper"):
-        res = [a for a in res if a.newspaper in st.session_state["fil_paper"]]
+        res = [(i, a) for i, a in res if a.newspaper in st.session_state["fil_paper"]]
     if st.session_state.get("fil_prio"):
-        res = [a for a in res if a.priority in st.session_state["fil_prio"]]
+        res = [(i, a) for i, a in res if a.priority in st.session_state["fil_prio"]]
     kw = st.session_state.get("fil_kw", "").strip()
     if kw:
-        res = [a for a in res if kw.lower() in a.title.lower()]
+        res = [(i, a) for i, a in res if kw.lower() in a.title.lower()]
     return res
 
 
-filtered = apply_filter(articles)
-filtered_idx = [articles.index(a) for a in filtered]
+filtered_pairs = apply_filter(articles)
+filtered_idx = [i for i, _ in filtered_pairs]
+filtered = [a for _, a in filtered_pairs]
 
 if filtered_idx:
     if st.session_state.preview not in filtered_idx:
